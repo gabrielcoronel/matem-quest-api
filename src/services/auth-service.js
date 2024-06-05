@@ -15,107 +15,87 @@ const compareHashedPassword = async (hashedPassword, test) => {
 }
 
 const isEmailSignedUp = async (email) => {
-  try {
-    const [{ count }] = await knexClient("player")
-      .where({
-        email
-      })
-      .count("email")
+  const [{ count }] = await knexClient("player")
+    .where({
+      email
+    })
+    .count("email")
 
-    return count > 0
-  } catch (error) {
-    throw error
-  }
+  return count > 0
 }
 
 const findPlayerByEmail = async (email) => {
-  try {
-    const players = await knexClient("player")
-      .where({
-        email
-      })
-      .select("*")
+  const players = await knexClient("player")
+    .where({
+      email
+    })
+    .select("*")
 
-    if (players.length == 0) {
-      return null
-    }
-
-    return players[0]
-  } catch (error) {
-    throw error
+  if (players.length == 0) {
+    return null
   }
+
+  return players[0]
 }
 
 const findPlayerById = async (playerId) => {
-  try {
-    const players = await knexClient("player")
-      .where({
-        player_id: playerId
-      })
-      .select("*")
-
-    if (players.length == 0) {
-      return null
-    }
-
-    return players[0]
-  } catch (error) {
-    throw error
-  }
-}
-
-const performSignUp = async (player) => {
-  try {
-    const session = await knexClient.transaction(async (transaction) => {
-      const hashedPassword = await hashPassword(player.password)
-
-      const [{ played_id: playerId }] = await transaction("player")
-        .insert({
-          name: player.name,
-          first_surname: player.first_surname,
-          second_surname: player.second_surname,
-          email: player.email,
-          hashed_password: hashedPassword
-        })
-        .returning(["player_id"])
-
-      await transaction("campaign")
-        .insert({
-          player_id: playerId,
-          achieved_level: 0
-        })
-
-      const [session] = await transaction("session")
-        .insert({
-          token: generateUuid(),
-          player_id: playerId,
-          issue_time: new Date()
-        })
-        .returning(["token", "player_id", "issue_time"])
-
-      return session
+  const players = await knexClient("player")
+    .where({
+      player_id: playerId
     })
+    .select("*")
 
-    return session
-  } catch (error) {
-    throw error
+  if (players.length == 0) {
+    return null
   }
+
+  return players[0]
 }
 
-const performLogIn = async (player) => {
-  try {
-    const [session] = await knexClient("session")
+const signUpPlayer = async (player) => {
+  const session = await knexClient.transaction(async (transaction) => {
+    const hashedPassword = await hashPassword(player.password)
+
+    const [{ played_id: playerId }] = await transaction("player")
+      .insert({
+        name: player.name,
+        first_surname: player.first_surname,
+        second_surname: player.second_surname,
+        email: player.email,
+        hashed_password: hashedPassword
+      })
+      .returning(["player_id"])
+
+    await transaction("campaign")
+      .insert({
+        player_id: playerId,
+        achieved_level: 0
+      })
+
+    const [session] = await transaction("session")
       .insert({
         token: generateUuid(),
-        player_id: player.player_id,
+        player_id: playerId,
         issue_time: new Date()
       })
       .returning(["token", "player_id", "issue_time"])
 
-      return session
-  } catch (error) {
-    throw error
-  }
+    return session
+  })
+
+  return session
+}
+
+const logInPlayer = async (player) => {
+  const [session] = await knexClient("session")
+    .insert({
+      token: generateUuid(),
+      player_id: player.player_id,
+      issue_time: new Date()
+    })
+    .returning(["token", "player_id", "issue_time"])
+
+  return session
 }
 
 const updatePlayerEmail = async (playerId, newEmail) => {
@@ -146,7 +126,7 @@ export default class {
       throw new Error("EMAIL_ALREADY_SIGNED_UP")
     }
 
-    const session = await performSignUp(player)
+    const session = await signUpPlayer(player)
 
     return session
   }
@@ -162,21 +142,17 @@ export default class {
       throw new Error("WRONG_PASSWORD")
     }
 
-    const session = await performLogIn(player)
+    const session = await logInPlayer(player)
 
     return session
   }
 
   static async logOut(token) {
-    try {
-      knexClient("session")
-        .where({
-          token
-        })
-        .del()
-    } catch (error) {
-      throw error
-    }
+    await knexClient("session")
+      .where({
+        token
+      })
+      .del()
   }
 
   static async changeEmail(playerId, newEmail, password) {

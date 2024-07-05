@@ -4,6 +4,7 @@ config()
 import express from 'express'
 import bodyParser from 'body-parser'
 import morgan from 'morgan'
+import cors from 'cors'
 
 import authRouter from './routers/auth-router.js'
 import playersRouter from './routers/players-router.js'
@@ -14,6 +15,7 @@ const port = process.env.API_PORT
 
 server.use(bodyParser.json())
 server.use(morgan("combined"))
+server.use(cors())
 
 server.use("/auth-service", authRouter)
 server.use("/players-service", playersRouter)

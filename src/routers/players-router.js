@@ -1,7 +1,10 @@
 import express from 'express'
 import PlayersService from '../services/players-service.js'
+import verifyToken from '../middlewares/verify-token.js'
 
 const playersRouter = express.Router()
+
+playersRouter.use(verifyToken)
 
 playersRouter.post("/edit", async (request, response) => {
   try {

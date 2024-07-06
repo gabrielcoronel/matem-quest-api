@@ -1,6 +1,30 @@
 import knexClient from '../shared/database-connection.js'
 import bcrypt from 'bcrypt'
-import { v4 as generateUuid } from 'uuid'
+import jsonWebToken from 'jsonwebtoken'
+
+const generateJsonWebToken = (payload) => {
+  const secret = process.env.JWT_SECRET
+  const token = jsonWebToken.sign(payload, secret, { expiresIn: "2h" })
+
+  return token
+}
+
+const createSession = async (playerId, databaseClient) => {
+  const [sessionFromDatabase] = await databaseClient("session")
+    .insert({
+      player_id: playerId,
+      issue_time: new Date()
+    })
+    .returning(["session_id", "player_id", "issue_time"])
+
+  const token = generateJsonWebToken(sessionFromDatabase)
+  const session = {
+    player_id: sessionFromDatabase.player_id,
+    token
+  }
+
+  return session
+}
 
 const hashPassword = async (password) => {
   const hashedPassword = await bcrypt.hash(password, 10)
@@ -56,7 +80,7 @@ const signUpPlayer = async (player) => {
   const session = await knexClient.transaction(async (transaction) => {
     const hashedPassword = await hashPassword(player.password)
 
-    const [{ played_id: playerId }] = await transaction("player")
+    const [{ player_id: playerId }] = await transaction("player")
       .insert({
         name: player.name,
         first_surname: player.first_surname,
@@ -72,28 +96,10 @@ const signUpPlayer = async (player) => {
         achieved_level: 0
       })
 
-    const [session] = await transaction("session")
-      .insert({
-        token: generateUuid(),
-        player_id: playerId,
-        issue_time: new Date()
-      })
-      .returning(["token", "player_id", "issue_time"])
+    const session = await createSession(playerId, transaction)
 
     return session
   })
-
-  return session
-}
-
-const logInPlayer = async (player) => {
-  const [session] = await knexClient("session")
-    .insert({
-      token: generateUuid(),
-      player_id: player.player_id,
-      issue_time: new Date()
-    })
-    .returning(["token", "player_id", "issue_time"])
 
   return session
 }
@@ -134,7 +140,7 @@ export default class {
   static async logIn(email, password) {
     const player = await findPlayerByEmail(email)
 
-    if (player == null) {
+    if (player === null) {
       throw new Error("EMAIL_NOT_FOUND")
     }
 
@@ -142,15 +148,15 @@ export default class {
       throw new Error("WRONG_PASSWORD")
     }
 
-    const session = await logInPlayer(player)
+    const session = await createSession(player.player_id, knexClient)
 
     return session
   }
 
-  static async logOut(token) {
+  static async logOut(sessionId) {
     await knexClient("session")
       .where({
-        token
+        session_id: sessionId
       })
       .del()
   }

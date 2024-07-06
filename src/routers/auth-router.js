@@ -1,5 +1,6 @@
 import express from 'express'
 import AuthService from '../services/auth-service.js'
+import verifyToken from '../middlewares/verify-token.js'
 
 const authRouter = express.Router()
 
@@ -25,11 +26,11 @@ authRouter.post("/log-in", async (request, response) => {
   }
 })
 
-authRouter.post("/log-out", async (request, response) => {
+authRouter.post("/log-out", verifyToken, async (request, response) => {
   try {
-    const { token } = request.body
+    const { sessionId } = request.body
 
-    await AuthService.logOut(token)
+    await AuthService.logOut(sessionId)
 
     response.status(200).json()
   } catch (error) {
@@ -37,7 +38,7 @@ authRouter.post("/log-out", async (request, response) => {
   }
 })
 
-authRouter.post("/change-email", async (request, response) => {
+authRouter.post("/change-email", verifyToken, async (request, response) => {
   try {
     const { playerId, email, password } = request.body
 
@@ -49,7 +50,7 @@ authRouter.post("/change-email", async (request, response) => {
   }
 })
 
-authRouter.post("/change-password", async (request, response) => {
+authRouter.post("/change-password", verifyToken, async (request, response) => {
   try {
     const { playerId, oldPassword, newPassword } = request.body
 

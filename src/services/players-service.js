@@ -10,32 +10,30 @@ const getCurrentScoringPeriod = () => {
   return currentScoringPeriod
 }
 
-const getPlayerInformation = async (playerId, currentScoringPeriod) => {
+const getPlayerInformation = async (playerId) => {
   const result = await knexClient.raw(`
       SELECT
-        player.player_id AS player_id,
-        player.name AS name,
-        player.first_surname AS first_surname,
-        player.second_surname AS second_surname,
-        player.email AS email,
-        json_agg(badge) AS badges,
-        campaign.achieved_level AS campaign_level,
-        score.points AS score
+        player.player_id,
+        player.name,
+        player.first_surname,
+        player.second_surname,
+        player.email,
+        json_agg(badge) as badges,
+        campaign.achieved_level AS campaign_level
       FROM player
-      INNER JOIN player_badge ON player.player_id = player_badge.player_id
-      FULL OUTER JOIN badge ON player_badge.badge_id = badge.badge_id
-      INNER JOIN campaign ON player.player_id = campaign.player_id
-      FULL OUTER JOIN score ON player.player_id = score.player_id
+      LEFT JOIN player_badge ON player.player_id = player_badge.player_id
+      LEFT JOIN badge ON player_badge.badge_id = badge.badge_id
+      JOIN campaign ON player.player_id = campaign.player_id
       WHERE player.player_id = :playerId
       GROUP BY
         player.player_id,
-        campaign.achieved_level,
-        score.points
+        campaign.achieved_level
       LIMIT 1
-    `, {
-    playerId,
-    currentScoringPeriod
-  })
+    `,
+    {
+      playerId
+    }
+  )
   const playerInformation = result.rows[0]
 
   return playerInformation
@@ -127,9 +125,7 @@ export default class {
   }
 
   static async findById(playerId) {
-    const currentScoringPeriod = getCurrentScoringPeriod()
-
-    const player = await getPlayerInformation(playerId, currentScoringPeriod)
+    const player = await getPlayerInformation(playerId)
 
     return player
   }

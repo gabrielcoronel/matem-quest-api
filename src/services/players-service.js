@@ -11,6 +11,8 @@ const getCurrentScoringPeriod = () => {
 }
 
 const getPlayerInformation = async (playerId) => {
+  const currentScoringPeriod = getCurrentScoringPeriod()
+
   const result = await knexClient.raw(`
       SELECT
         player.player_id,
@@ -19,15 +21,18 @@ const getPlayerInformation = async (playerId) => {
         player.second_surname,
         player.email,
         json_agg(badge) as badges,
-        campaign.achieved_level AS campaign_level
+        campaign.achieved_level AS campaign_level,
+        score.points AS ranked_score
       FROM player
       LEFT JOIN player_badge ON player.player_id = player_badge.player_id
       LEFT JOIN badge ON player_badge.badge_id = badge.badge_id
+      LEFT JOIN score ON player.player_id = score.player_id
       JOIN campaign ON player.player_id = campaign.player_id
       WHERE player.player_id = :playerId
       GROUP BY
         player.player_id,
-        campaign.achieved_level
+        campaign.achieved_level,
+        score.points
       LIMIT 1
     `,
     {

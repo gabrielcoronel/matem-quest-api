@@ -2,16 +2,22 @@ import knexClient from '../shared/database-connection.js'
 
 const getCurrentScoringPeriod = () => {
   const currentDate = new Date()
-  const currentScoringPeriod = new Date(
+  const currentScoringPeriod = new Date(Date.UTC(
     currentDate.getFullYear(),
-    currentDate.getMonth()
-  )
+    currentDate.getMonth(),
+    1,
+    0,
+    0,
+    0,
+    0
+  ))
 
   return currentScoringPeriod
 }
 
 const getPlayerInformation = async (playerId) => {
   const currentScoringPeriod = getCurrentScoringPeriod()
+  console.log(currentScoringPeriod.toISOString())
 
   const result = await knexClient.raw(`
       SELECT
@@ -27,6 +33,7 @@ const getPlayerInformation = async (playerId) => {
       LEFT JOIN player_badge ON player.player_id = player_badge.player_id
       LEFT JOIN badge ON player_badge.badge_id = badge.badge_id
       LEFT JOIN score ON player.player_id = score.player_id
+      AND score.period = :scoringPeriod
       JOIN campaign ON player.player_id = campaign.player_id
       WHERE player.player_id = :playerId
       GROUP BY
@@ -36,7 +43,8 @@ const getPlayerInformation = async (playerId) => {
       LIMIT 1
     `,
     {
-      playerId
+      playerId,
+      scoringPeriod: currentScoringPeriod
     }
   )
   const playerInformation = result.rows[0]
